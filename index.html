@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>轮盘转动</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f2f2f7;
+      --card-bg: rgba(255,255,255,0.85);
+      --card-blur: 20px;
+      --primary: #007aff;
+      --text: #1c1c1e;
+      --text-secondary: #8e8e93;
+      --border: rgba(60,60,67,0.12);
+      --shadow: 0 2px 16px rgba(0,0,0,0.08);
+      --radius: 14px;
+    }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+    .app {
+      width: 100%;
+      max-width: 420px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0 16px;
+      padding-top: env(safe-area-inset-top, 12px);
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+
+    /* Header */
+    .header {
+      padding: 20px 0 12px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 590;
+      letter-spacing: -0.3px;
+    }
+    .header p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Input card */
+    .input-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--card-blur));
+      -webkit-backdrop-filter: blur(var(--card-blur));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      flex-shrink: 0;
+      border: 0.5px solid var(--border);
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .input-row input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: #f2f2f7;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 16px;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .input-row input::placeholder { color: var(--text-secondary); }
+    .input-row button {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 10px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 300;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s;
+    }
+    .input-row button:active { opacity: 0.7; }
+    .input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Tags */
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      min-height: 32px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #e8e8ed;
+      border-radius: 8px;
+      padding: 4px 10px 4px 12px;
+      font-size: 13px;
+      animation: tagIn 0.2s ease;
+    }
+    .tag .del {
+      width: 18px;
+      height: 18px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: #8e8e93;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .tag .del:active { background: rgba(0,0,0,0.1); }
+    @keyframes tagIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .tags-empty {
+      font-size: 13px;
+      color: var(--text-secondary);
+      width: 100%;
+      text-align: center;
+      line-height: 32px;
+    }
+    .tags-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 4px;
+      min-height: 0;
+    }
+    .clear-btn {
+      border: none;
+      background: transparent;
+      color: #ff3b30;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 4px 6px;
+      transition: opacity 0.15s;
+    }
+    .clear-btn:active { opacity: 0.5; }
+
+    /* Wheel area */
+    .wheel-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 0;
+      position: relative;
+      min-height: 0;
+    }
+    .wheel-wrapper {
+      position: relative;
+      width: min(82vw, 340px);
+      height: min(82vw, 340px);
+    }
+    .wheel-wrapper canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.12);
+      background: #fff;
+    }
+    /* Pointer */
+    .pointer {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    .pointer::before {
+      content: '';
+      display: block;
+      width: 0;
+      height: 0;
+      border-left: 16px solid transparent;
+      border-right: 16px solid transparent;
+      border-top: 28px solid var(--primary);
+    }
+    .pointer-dot {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+    }
+
+    /* Spin button */
+    .spin-btn-wrap {
+      flex-shrink: 0;
+      padding: 8px 0 4px;
+    }
+    .spin-btn {
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 590;
+      padding: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+    .spin-btn:active { opacity: 0.8; transform: scale(0.98); }
+    .spin-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-radius: 20px;
+      padding: 28px 24px 20px;
+      width: 280px;
+      max-width: 85vw;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      transform: scale(0.92);
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .modal-overlay.active .modal-card {
+      transform: scale(1);
+    }
+    .modal-card .emoji {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .modal-card .label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .modal-card .result {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+    .modal-card .ok-btn {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 12px;
+      padding: 10px 0;
+      width: 100%;
+      font-size: 17px;
+      font-weight: 590;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .modal-card .ok-btn:active { opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <h1>🎡 轮盘转动</h1>
+      <p>输入选项</p>
+    </div>
+
+    <!-- Input -->
+    <div class="input-card">
+      <div class="input-row">
+        <input id="optionInput" type="text" placeholder="输入选项" maxlength="30" autocomplete="off">
+        <button id="addBtn" disabled aria-label="添加">+</button>
+      </div>
+      <div class="tags" id="tagsContainer">
+        <div class="tags-empty">还没有选项，添加一些吧</div>
+      </div>
+      <div class="tags-footer" id="tagsFooter" style="display:none">
+        <button class="clear-btn" id="clearBtn">清空全部</button>
+      </div>
+    </div>
+
+    <!-- Wheel -->
+    <div class="wheel-area">
+      <div class="wheel-wrapper">
+        <div class="pointer">
+          <div class="pointer-dot"></div>
+        </div>
+        <canvas id="wheelCanvas" width="400" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- Spin -->
+    <div class="spin-btn-wrap">
+      <button class="spin-btn" id="spinBtn" disabled>开始转动</button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-card">
+      <div class="emoji">🎉</div>
+      <div class="label">本次抽中</div>
+      <div class="result" id="modalResult"></div>
+      <button class="ok-btn" id="modalOk">知道了</button>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      // ---------- state ----------
+      const COLORS = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#F9A825', '#AB47BC',
+        '#26A69A', '#EF5350', '#42A5F5', '#FF7043', '#66BB6A',
+        '#EC407A', '#5C6BC0'
+      ];
+      const STORAGE_KEY = 'wheel_picker_options';
+      const MAX_OPTIONS = 30;
+
+      const canvas = document.getElementById('wheelCanvas');
+      const ctx = canvas.getContext('2d');
+      const inputEl = document.getElementById('optionInput');
+      const addBtn = document.getElementById('addBtn');
+      const tagsEl = document.getElementById('tagsContainer');
+      const tagsFooter = document.getElementById('tagsFooter');
+      const clearBtn = document.getElementById('clearBtn');
+      const spinBtn = document.getElementById('spinBtn');
+      const modalOverlay = document.getElementById('modalOverlay');
+      const modalResult = document.getElementById('modalResult');
+      const modalOk = document.getElementById('modalOk');
+
+      let options = [];
+      let currentAngle = 0;
+      let spinning = false;
+      let animId = null;
+
+      // ---------- load cache ----------
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            options = parsed.slice(0, MAX_OPTIONS);
+          }
+        }
+      } catch (_) {}
+
+      // ---------- helpers ----------
+      function save() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(options)); } catch (_) {}
+      }
+
+      function updateUI() {
+        renderTags();
+        drawWheel();
+        tagsFooter.style.display = options.length > 0 ? '' : 'none';
+        const valid = options.length >= 2;
+        spinBtn.disabled = valid ? false : true;
+        spinBtn.textContent = valid ? '开始转动' : options.length === 0 ? '请添加选项' : '至少需要 2 个选项';
+      }
+
+      // ---------- tags ----------
+      function renderTags() {
+        if (options.length === 0) {
+          tagsEl.innerHTML = '<div class="tags-empty">还没有选项，添加一些吧</div>';
+          return;
+        }
+        tagsEl.innerHTML = '';
+        options.forEach((opt, i) => {
+          const tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.innerHTML = `${escapeHtml(opt)}<button class="del" data-index="${i}" aria-label="删除">✕</button>`;
+          tagsEl.appendChild(tag);
+        });
+        // delete handlers
+        tagsEl.querySelectorAll('.del').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const idx = parseInt(this.dataset.index, 10);
+            if (!spinning) removeOption(idx);
+          });
+        });
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      // ---------- option CRUD ----------
+      function addOption(text) {
+        const val = text.trim();
+        if (!val) return false;
+        if (options.length >= MAX_OPTIONS) {
+          shake(addBtn); setTimeout(() => alert('最多 30 个选项'), 200);
+          return false;
+        }
+        if (options.some(o => o === val)) {
+          inputEl.value = '';
+          shake(inputEl);
+          return false;
+        }
+        options.push(val);
+        save();
+        updateUI();
+        inputEl.value = '';
+        inputEl.focus();
+        checkInput();
+        return true;
+      }
+
+      function removeOption(idx) {
+        options.splice(idx, 1);
+        save();
+        updateUI();
+      }
+
+      function clearOptions() {
+        if (options.length === 0) return;
+        options = [];
+        save();
+        updateUI();
+      }
+
+      function checkInput() {
+        addBtn.disabled = inputEl.value.trim() === '';
+      }
+
+      // ---------- canvas drawing ----------
+      function drawWheel(rotateAngle) {
+        const angle = rotateAngle !== undefined ? rotateAngle : currentAngle;
+        const w = canvas.width;
+        const h = canvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        const r = Math.min(cx, cy) - 4;
+        const n = options.length;
+
+        ctx.clearRect(0, 0, w, h);
+
+        if (n === 0) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fillStyle = '#f0f0f5';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.strokeStyle = '#e0e0e5';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = '#8e8e93';
+          ctx.font = '15px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('添加选项后显示轮盘', cx, cy);
+          return;
+        }
+
+        const slice = (Math.PI * 2) / n;
+        const fontSize = Math.max(10, Math.min(15, r * 0.75 / n));
+
+        // draw each sector
+        for (let i = 0; i < n; i++) {
+          const startAngle = angle + i * slice;
+          const endAngle = startAngle + slice;
+
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, r, startAngle, endAngle);
+          ctx.closePath();
+
+          ctx.fillStyle = COLORS[i % COLORS.length];
+          ctx.fill();
+
+          // border
+          ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // text
+          const midAngle = startAngle + slice / 2;
+          const textR = r * 0.62;
+
+          ctx.save();
+          ctx.translate(cx + Math.cos(midAngle) * textR, cy + Math.sin(midAngle) * textR);
+          ctx.rotate(midAngle + Math.PI / 2);
+
+          ctx.fillStyle = '#fff';
+          ctx.font = `600 ${fontSize}px -apple-system, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          let label = options[i];
+          // truncate
+          const maxLen = Math.max(3, Math.floor(r * 0.62 / fontSize * 0.6));
+          if (label.length > maxLen + 1) {
+            label = label.slice(0, maxLen - 1) + '…';
+          }
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        }
+
+        // center circle
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.1, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#e0e0e5';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // ---------- spin animation ----------
+      function spin() {
+        if (spinning) return;
+        if (options.length < 2) return;
+
+        spinning = true;
+        spinBtn.disabled = true;
+
+        const n = options.length;
+        const slice = (Math.PI * 2) / n;
+
+        // pick random winner
+        const winIndex = Math.floor(Math.random() * n);
+
+        // The pointer is at the top (angle = -π/2, i.e. 12 o'clock).
+        // Sector i occupies [currentAngle + i*slice, currentAngle + (i+1)*slice).
+        // The pointer angle is considered as currentAngle (mod 2π).
+        // For sector i to align its center with the pointer:
+        //   offset = -(currentAngle + i*slice + slice/2) + Math.PI/2
+        // Plus some extra full rotations for visual effect.
+        const centerOfSector = currentAngle + winIndex * slice + slice / 2;
+        // We want the sector center to point up (angle = -π/2 or 3π/2)
+        let targetOffset = -centerOfSector - Math.PI / 2;
+        // Normalize to [0, 2π)
+        targetOffset = ((targetOffset % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        // Add 5-8 full turns
+        const extraTurns = (5 + Math.floor(Math.random() * 4)) * Math.PI * 2;
+        const totalRotation = targetOffset + extraTurns;
+
+        const startAngle = currentAngle;
+        const endAngle = startAngle + totalRotation;
+        const duration = 5500 + Math.random() * 1000; // 5.5-6.5s
+        const startTime = performance.now();
+
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
+        function animate(now) {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+
+          // ease
+          const eased = easeOutCubic(progress);
+          const current = startAngle + totalRotation * eased;
+
+          drawWheel(current);
+
+          if (progress < 1) {
+            animId = requestAnimationFrame(animate);
+          } else {
+            currentAngle = endAngle % (Math.PI * 2);
+            drawWheel(currentAngle);
+            spinning = false;
+            spinBtn.disabled = false;
+            showResult(winIndex);
+          }
+        }
+
+        animId = requestAnimationFrame(animate);
+      }
+
+      // ---------- modal ----------
+      function showResult(idx) {
+        modalResult.textContent = options[idx];
+        modalOverlay.classList.add('active');
+      }
+
+      function hideModal() {
+        modalOverlay.classList.remove('active');
+      }
+
+      // ---------- shake ----------
+      function shake(el) {
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = 'shake 0.3s ease';
+        setTimeout(() => el.style.animation = '', 350);
+      }
+
+      // inject shake keyframes
+      const styleShake = document.createElement('style');
+      styleShake.textContent = `@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }`;
+      document.head.appendChild(styleShake);
+
+      // ---------- events ----------
+      inputEl.addEventListener('input', checkInput);
+
+      inputEl.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (!addBtn.disabled) addOption(this.value);
+        }
+      });
+
+      addBtn.addEventListener('click', function() {
+        addOption(inputEl.value);
+      });
+
+      clearBtn.addEventListener('click', clearOptions);
+      spinBtn.addEventListener('click', spin);
+
+      modalOk.addEventListener('click', hideModal);
+      modalOverlay.addEventListener('click', function(e) {
+        if (e.target === this) hideModal();
+      });
+
+      // ---------- init ----------
+      updateUI();
+    })();
+  </script>
+</body>
+</html>
