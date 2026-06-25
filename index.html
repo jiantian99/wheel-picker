@@ -389,6 +389,7 @@
       const modalOk = document.getElementById('modalOk');
 
       let options = [];
+      let colorIndices = [];
       let currentAngle = 0;
       let spinning = false;
       let animId = null;
@@ -398,15 +399,35 @@
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             options = parsed.slice(0, MAX_OPTIONS);
+            for (let i = 0; i < options.length; i++) {
+              colorIndices.push(pickColorForNew());
+            }
+          } else if (parsed && Array.isArray(parsed.options)) {
+            options = parsed.options.slice(0, MAX_OPTIONS);
+            if (Array.isArray(parsed.colorIndices)) {
+              colorIndices = parsed.colorIndices.slice(0, MAX_OPTIONS);
+            }
           }
         }
       } catch (_) {}
 
       // ---------- helpers ----------
       function save() {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(options)); } catch (_) {}
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ options, colorIndices })); } catch (_) {}
+      }
+
+      function pickColorForNew() {
+        const n = options.length;
+        const exclude = new Set();
+        if (n > 0) exclude.add(colorIndices[n - 1]);
+        if (n > 1) exclude.add(colorIndices[0]);
+        const available = [];
+        for (let i = 0; i < COLORS.length; i++) {
+          if (!exclude.has(i)) available.push(i);
+        }
+        return available[Math.floor(Math.random() * available.length)];
       }
 
       function updateUI() {
@@ -461,6 +482,7 @@
           return false;
         }
         options.push(val);
+        colorIndices.push(pickColorForNew());
         save();
         updateUI();
         inputEl.value = '';
@@ -471,6 +493,7 @@
 
       function removeOption(idx) {
         options.splice(idx, 1);
+        colorIndices.splice(idx, 1);
         save();
         updateUI();
       }
@@ -478,6 +501,7 @@
       function clearOptions() {
         if (options.length === 0) return;
         options = [];
+        colorIndices = [];
         save();
         updateUI();
       }
@@ -530,7 +554,7 @@
           ctx.arc(cx, cy, r, startAngle, endAngle);
           ctx.closePath();
 
-          ctx.fillStyle = COLORS[i % COLORS.length];
+          ctx.fillStyle = COLORS[colorIndices[i]];
           ctx.fill();
 
           // border
