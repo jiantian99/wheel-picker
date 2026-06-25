@@ -38,6 +38,7 @@
       width: 100%;
       max-width: 420px;
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       padding: 0 16px;
@@ -584,15 +585,10 @@
         // pick random winner
         const winIndex = Math.floor(Math.random() * n);
 
-        // The pointer is at the top (angle = -π/2, i.e. 12 o'clock).
-        // Sector i occupies [currentAngle + i*slice, currentAngle + (i+1)*slice).
-        // The pointer angle is considered as currentAngle (mod 2π).
-        // For sector i to align its center with the pointer:
-        //   offset = -(currentAngle + i*slice + slice/2) + Math.PI/2
-        // Plus some extra full rotations for visual effect.
-        const centerOfSector = currentAngle + winIndex * slice + slice / 2;
-        // We want the sector center to point up (angle = -π/2 or 3π/2)
-        let targetOffset = -centerOfSector - Math.PI / 2;
+        // Random landing position within the winning sector
+        const randomOffset = Math.random() * slice;
+        const targetInSector = currentAngle + winIndex * slice + randomOffset;
+        let targetOffset = -targetInSector - Math.PI / 2;
         // Normalize to [0, 2π)
         targetOffset = ((targetOffset % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         // Add 5-8 full turns
